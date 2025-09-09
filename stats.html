@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi Stats U13 - v8.0 Score</title>
+    <style>
+        :root {
+            --color-positif: #a0dca0; --color-negatif: #f0a0a0; --color-neutre: #e0e0e0;
+            --color-primaire: #007bff; --color-secondaire: #6c757d; --color-banc: #fafafa; --color-fond: #f4f4f4;
+            --color-but: #28a745; /* Couleur spéciale pour le bouton BUT */
+        }
+        body { font-family: Arial, sans-serif; background-color: var(--color-fond); margin: 0; padding: 10px; }
+        h2 { text-align: center; margin-top: 10px; margin-bottom: 10px; font-size: 1.2em; color: #333; }
+        h3 { text-align: center; margin: 0; font-size: 1em; }
+
+        /* --- Conteneurs principaux --- */
+        .card { background-color: white; padding: 10px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* --- NOUVEAU: Section Score --- */
+        #score-section { text-align: center; }
+        #score-display { font-size: 2.8em; font-weight: bold; margin: 10px 0; color: #111; }
+        #score-display span { padding: 0 15px; }
+        #score-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        #score-adjustments { display: flex; justify-content: space-around; margin-top: 10px; }
+        .adjust-btn { font-size: 1.2em; padding: 2px 10px; cursor: pointer; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 5px; }
+
+        /* --- Infos Match & Chrono --- */
+        .info-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .info-inputs input[type="text"], .info-inputs select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 0.9em; }
+        #timer-display { font-size: 2.5em; font-weight: bold; text-align: center; color: #111; margin-bottom: 8px; letter-spacing: 1px; }
+        #chrono-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        #chrono-controls button { padding: 8px; font-size: 0.9em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        /* --- Grille Joueurs --- */
+        #player-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .player-card { background-color: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: opacity 0.3s ease, background-color 0.3s ease; }
+        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .player-name { margin: 0; flex-grow: 1; font-size: 1.1em; padding-left: 8px; }
+        .player-toggle { transform: scale(1.3); margin-right: 5px; cursor: pointer; }
+        .player-card.is-benched { opacity: 0.6; background-color: var(--color-banc); }
+        .player-card.is-benched .button-group { display: none; }
+        
+        .button-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; }
+        .button-group button { padding: 8px 4px; font-size: 0.8em; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
+        .positif { background-color: var(--color-positif); } .negatif { background-color: var(--color-negatif); } .neutre { background-color: var(--color-neutre); }
+        .btn-goal { background-color: var(--color-but); color: white; } /* Style spécial bouton BUT */
+
+        /* --- Configuration & Résultats --- */
+        details { background-color: white; padding: 10px; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd; }
+        summary { font-weight: bold; cursor: pointer; font-size: 1.1em; color: var(--color-primaire); }
+        #exportBtn { width: 100%; padding: 12px; background-color: var(--color-secondaire); color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="match-info-container" class="card">
+        <div class="info-inputs">
+            <input type="text" id="opponentName" placeholder="Nom de l'adversaire">
+            <select id="matchLocation">
+                <option value="domicile">Domicile</option>
+                <option value="exterieur">Extérieur</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="score-section" class="card">
+        <div id="score-display">
+            <span id="homeTeamName">Nous</span> <span id="homeScore">0</span> - <span id="awayScore">0</span> <span id="awayTeamName">Adversaire</span>
+        </div>
+        <div id="score-controls">
+            <button onclick="handleOpponentGoal()" class="negatif">But Adverse</button>
+            <div id="score-adjustments">
+                <div>
+                    <button onclick="adjustScore('home', -1)" class="adjust-btn">-</button>
+                    <span>Nous</span>
+                    <button onclick="adjustScore('home', 1)" class="adjust-btn">+</button>
+                </div>
+                <div>
+                    <button onclick="adjustScore('away', -1)" class="adjust-btn">-</button>
+                    <span>Adverse</span>
+                    <button onclick="adjustScore('away', 1)" class="adjust-btn">+</button>
+                </div>
+            </div>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+        <div id="timer-display">00:00</div>
+        <div id="chrono-controls">
+            <button id="startBtn">Démarrer</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="resetBtn">Réinitialiser</button>
+        </div>
+    </div>
+
+    <h2>Joueurs</h2>
+    <div id="player-grid"></div>
+
+    <details class="card">
+        <summary>Configuration de l'équipe</summary>
+        <textarea id="player-editor" rows="11"></textarea>
+        <button id="savePlayersBtn">Sauvegarder les noms</button>
+    </details>
+    <details class="card" open>
+        <summary>Statistiques Détaillées et Export</summary>
+        <pre id="results"></pre>
+        <button id="exportBtn">Exporter en CSV (pour Excel)</button>
+    </details>
+
+    <script>
+        // --- Constantes et Variables Globales ---
+        const DUREE_MI_TEMPS_SECONDES = 30 * 60; // 30 minutes
+        let statsData = {};
+        let matchInfo = { opponent: "", location: "domicile" };
+        let scoreEquipe = 0;
+        let scoreAdverse = 0;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let currentSummaryData = {};
+        const ACTION_TYPES = [
+            'passeReussie', 'passeRatee', 'tirBut', 'tirRate', 'fauteSubie', 'fauteCommise', 
+            'arretGardien', 'ballonRecupere', 'ballonPerdu', 'butMarque', 'passeDecisive'
+        ];
+
+        // --- Initialisation de l'application ---
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPlayersFromStorage(); loadMatchInfoFromStorage(); initializeStats();
+            renderPlayerCards(); updateResultsDisplay(); setupEventListeners();
+            loadScore(); updateScoreDisplay(); // Charge le score sauvegardé
+        });
+
+        function setupEventListeners() {
+            document.getElementById('startBtn').addEventListener('click', startTimer);
+            document.getElementById('pauseBtn').addEventListener('click', pauseTimer);
+            document.getElementById('resetBtn').addEventListener('click', resetTimer);
+            document.getElementById('savePlayersBtn').addEventListener('click', savePlayersAndUpdateUI);
+            document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+            document.getElementById('opponentName').addEventListener('input', updateMatchInfo);
+            document.getElementById('matchLocation').addEventListener('change', updateMatchInfo);
+        }
+
+        // --- Gestion Infos Match et Score ---
+        function updateMatchInfo() {
+            matchInfo.opponent = document.getElementById('opponentName').value;
+            matchInfo.location = document.getElementById('matchLocation').value;
+            document.getElementById('awayTeamName').textContent = matchInfo.opponent || "Adversaire";
+            localStorage.setItem('U13MatchInfo', JSON.stringify(matchInfo));
+            updateResultsDisplay();
+        }
+        function loadMatchInfoFromStorage() {
+            const savedInfo = localStorage.getItem('U13MatchInfo');
+            if (savedInfo) {
+                matchInfo = JSON.parse(savedInfo);
+                document.getElementById('opponentName').value = matchInfo.opponent || "";
+                document.getElementById('matchLocation').value = matchInfo.location || "domicile";
+                document.getElementById('awayTeamName').textContent = matchInfo.opponent || "Adversaire";
+            }
+        }
+        function updateScoreDisplay() {
+            document.getElementById('homeScore').textContent = scoreEquipe;
+            document.getElementById('awayScore').textContent = scoreAdverse;
+        }
+        function saveScore() {
+            localStorage.setItem('U13Score', JSON.stringify({ home: scoreEquipe, away: scoreAdverse }));
+        }
+        function loadScore() {
+            const savedScore = localStorage.getItem('U13Score');
+            if (savedScore) {
+                const scores = JSON.parse(savedScore);
+                scoreEquipe = scores.home || 0;
+                scoreAdverse = scores.away || 0;
+            }
+        }
+
+        // --- Gestion Chronomètre ---
+        function startTimer() { if (!timerInterval) timerInterval = setInterval(tick, 1000); }
+        function pauseTimer() { clearInterval(timerInterval); timerInterval = null; }
+        function resetTimer() {
+            if (confirm("Voulez-vous vraiment réinitialiser le match et toutes les statistiques ?")) {
+                clearInterval(timerInterval); timerInterval = null; secondsElapsed = 0;
+                matchInfo = { opponent: "", location: "domicile" }; localStorage.removeItem('U13MatchInfo');
+                document.getElementById('opponentName').value = ""; document.getElementById('matchLocation').value = "domicile";
+                scoreEquipe = 0; scoreAdverse = 0; localStorage.removeItem('U13Score');
+                initializeStats(); renderPlayerCards(); updateTimerDisplay(); updateScoreDisplay(); updateResultsDisplay();
+            }
+        }
+        function tick() { secondsElapsed++; updateTimerDisplay(); }
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60;
+            return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        }
+        function updateTimerDisplay() { document.getElementById('timer-display').textContent = formatTime(secondsElapsed); }
+
+        // --- Logique de Données et Statistiques ---
+        function initializeStats() {
+            const playerNames = getPlayerList(); statsData = {}; 
+            playerNames.forEach(player => { statsData[player] = { isPlaying: true, actions: [], playTimeLog: [{ status: true, time: 0 }] }; });
+        }
+
+        function addStat(playerName, actionType) {
+            const half = (secondsElapsed <= DUREE_MI_TEMPS_SECONDES) ? 1 : 2;
+            statsData[playerName].actions.push({ type: actionType, time: formatTime(secondsElapsed), half: half });
+            
+            // Logique d'incrémentation du score si c'est un but
+            if (actionType === 'butMarque') {
+                scoreEquipe++;
+                updateScoreDisplay();
+                saveScore();
+            }
+            updateResultsDisplay();
+        }
+        
+        function handleOpponentGoal() {
+            scoreAdverse++;
+            updateScoreDisplay();
+            saveScore();
+            // Optionnel: loguer le but adverse dans un journal global si nécessaire
+            console.log(`But adverse marqué à ${formatTime(secondsElapsed)}`);
+        }
+
+        function adjustScore(team, delta) {
+            if (team === 'home') {
+                scoreEquipe = Math.max(0, scoreEquipe + delta);
+            } else {
+                scoreAdverse = Math.max(0, scoreAdverse + delta);
+            }
+            updateScoreDisplay();
+            saveScore();
+        }
+
+        // --- Gestion Joueurs et Remplacements ---
+        function renderPlayerCards() {
+            const container = document.getElementById('player-grid'); container.innerHTML = ''; 
+            const playerNames = getPlayerList();
+            playerNames.forEach(player => {
+                const card = document.createElement('div'); const uniquePlayerId = player.replace(/[^a-zA-Z0-9]/g, '');
+                card.className = 'player-card'; card.id = `card-${uniquePlayerId}`;
+                const isPlaying = statsData[player] ? statsData[player].isPlaying : true;
+                if (!isPlaying) card.classList.add('is-benched');
+                const header = document.createElement('div'); header.className = 'player-header';
+                header.innerHTML = `<input type="checkbox" class="player-toggle" onchange="togglePlayerStatus('${player}')" ${isPlaying ? 'checked' : ''}><h3 class="player-name">${player}</h3>`;
+                
+                let buttonsHTML = ''; const isGoalkeeper = player.toLowerCase().includes("gardien");
+
+                if (!isGoalkeeper) {
+                    buttonsHTML = `
+                        <button onclick="addStat('${player}', 'butMarque')" class="btn-goal">+ BUT</button>
+                        <button onclick="addStat('${player}', 'passeDecisive')" class="positif">+ Passe Dé.</button>
+                        <button onclick="addStat('${player}', 'tirBut')" class="positif">+ Tir OK</button>
+                        <button onclick="addStat('${player}', 'tirRate')" class="negatif">- Tir NG</button>
+                        <button onclick="addStat('${player}', 'ballonRecupere')" class="positif">+ Ballon Récupéré</button>
+                        <button onclick="addStat('${player}', 'ballonPerdu')" class="negatif">- Ballon Perdu</button>
+                        <button onclick="addStat('${player}', 'passeReussie')" class="positif">+ Passe ✔</button>
+                        <button onclick="addStat('${player}', 'passeRatee')" class="negatif">- Passe ✖</button>
+                        <button onclick="addStat('${player}', 'fauteSubie')" class="positif">+ Faute S.</button>
+                        <button onclick="addStat('${player}', 'fauteCommise')" class="negatif">-Faute C.</button>`;
+                } else {
+                    buttonsHTML = `
+                        <button onclick="addStat('${player}', 'arretGardien')" class="neutre">Arrêt</button> 
+                        <button onclick="addStat('${player}', 'passeReussie')" class="positif">+ Passe Réussie</button>
+                        <button onclick="addStat('${player}', 'passeRatee')" class="negatif">-Passe Ratée</button>`;
+                }
+                const buttonGroup = document.createElement('div'); buttonGroup.className = 'button-group'; buttonGroup.innerHTML = buttonsHTML;
+                card.appendChild(header); card.appendChild(buttonGroup); container.appendChild(card);
+            });
+        }
+        
+        function togglePlayerStatus(playerName) {
+            const newStatus = !statsData[playerName].isPlaying; statsData[playerName].isPlaying = newStatus;
+            statsData[playerName].playTimeLog.push({ status: newStatus, time: secondsElapsed });
+            const uniquePlayerId = playerName.replace(/[^a-zA-Z0-9]/g, '');
+            document.getElementById(`card-${uniquePlayerId}`).classList.toggle('is-benched', !newStatus); updateResultsDisplay(); 
+        }
+
+        function calculatePlaytime(playerLog) {
+            let totalPlaytime = 0; let lastInTime = 0; let currentlyPlaying = false;
+            for (const entry of playerLog) {
+                if (entry.status === true && !currentlyPlaying) { lastInTime = entry.time; currentlyPlaying = true; } 
+                else if (entry.status === false && currentlyPlaying) { totalPlaytime += entry.time - lastInTime; currentlyPlaying = false; }
+            }
+            if (currentlyPlaying) totalPlaytime += secondsElapsed - lastInTime; return totalPlaytime;
+        }
+
+        function updateResultsDisplay() {
+            let summary = { matchDetails: matchInfo, score: { nous: scoreEquipe, adverse: scoreAdverse }, players: {} };
+            for (const playerName in statsData) {
+                if (statsData.hasOwnProperty(playerName)) {
+                    const playerData = statsData[playerName];
+                    const calculatedTimeInSeconds = calculatePlaytime(playerData.playTimeLog);
+                    summary.players[playerName] = {
+                        tempsDeJeu: formatTime(calculatedTimeInSeconds), statutActuel: playerData.isPlaying ? "Sur le terrain" : "Sur le banc", MT1: {}, MT2: {}
+                    };
+                    ACTION_TYPES.forEach(type => {
+                        summary.players[playerName].MT1[type] = playerData.actions.filter(a => a.type === type && a.half === 1).length;
+                        summary.players[playerName].MT2[type] = playerData.actions.filter(a => a.type === type && a.half === 2).length;
+                    });
+                }
+            }
+            currentSummaryData = summary; document.getElementById('results').textContent = JSON.stringify(summary, null, 2);
+        }
+
+        // --- Configuration et Sauvegarde (localStorage) ---
+        function getPlayerList() {
+            const savedPlayers = localStorage.getItem('U13Players');
+            if (savedPlayers) return JSON.parse(savedPlayers);
+            return ["Joueur 1", "Joueur 2", "Joueur 3", "Joueur 4", "Joueur 5", "Joueur 6", "Joueur 7", "Joueur 8", "Joueur 9", "Gardien Equipe"];
+        }
+        function loadPlayersFromStorage() { document.getElementById('player-editor').value = getPlayerList().join('\n'); }
+        function savePlayersAndUpdateUI() {
+            const playerText = document.getElementById('player-editor').value;
+            const newPlayerList = playerText.split('\n').filter(name => name.trim() !== '');
+            localStorage.setItem('U13Players', JSON.stringify(newPlayerList));
+            alert("Liste des joueurs mise à jour."); initializeStats(); renderPlayerCards(); updateResultsDisplay();
+        }
+
+        // --- FONCTION D'EXPORT CSV ---
+        function exportToCSV() {
+            const summary = currentSummaryData; let csvContent = [];
+            const headers = [
+                "Joueur", "Temps de Jeu", "Statut Actuel",
+                "Buts", "Passes Decisives", "Ballons Recup", "Ballons Perdus", "Passes Reussies", "Passes Ratees", "Tirs OK", "Tirs NG", "Fautes Subies", "Fautes Commises", "Arrets"
+            ];
+            // Crée des en-têtes séparés pour MT1 et MT2
+            const mt1Headers = headers.slice(3).map(h => `MT1 ${h}`);
+            const mt2Headers = headers.slice(3).map(h => `MT2 ${h}`);
+            csvContent.push([headers[0], headers[1], headers[2], ...mt1Headers, ...mt2Headers].join(";"));
+
+            for (const playerName in summary.players) {
+                const data = summary.players[playerName];
+                const row = [
+                    playerName, data.tempsDeJeu, data.statutActuel,
+                    // MT1 data
+                    data.MT1.butMarque, data.MT1.passeDecisive, data.MT1.ballonRecupere, data.MT1.ballonPerdu, data.MT1.passeReussie, data.MT1.passeRatee, data.MT1.tirBut, data.MT1.tirRate, data.MT1.fauteSubie, data.MT1.fauteCommise, data.MT1.arretGardien,
+                    // MT2 data
+                    data.MT2.butMarque, data.MT2.passeDecisive, data.MT2.ballonRecupere, data.MT2.ballonPerdu, data.MT2.passeReussie, data.MT2.passeRatee, data.MT2.tirBut, data.MT2.tirRate, data.MT2.fauteSubie, data.MT2.fauteCommise, data.MT2.arretGardien
+                ];
+                csvContent.push(row.map(val => val || 0).join(";")); // Remplace undefined par 0
+            }
+            csvContent.push(""); csvContent.push(`Score Final;${summary.score.nous} - ${summary.score.adverse}`);
+            csvContent.push(`Adversaire;${summary.matchDetails.opponent}`);
+            csvContent.push(`Lieu;${summary.matchDetails.location}`);
+            csvContent.push(`Date Export;${new Date().toLocaleString('fr-FR')}`);
+
+            const csvString = csvContent.join("\n"); const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a"); const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            const fileName = `stats_${summary.matchDetails.opponent || "match"}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.setAttribute("download", fileName); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
